@@ -1,6 +1,60 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ipsewa</title></head>
-<body style="font-family:sans-serif;max-width:700px;margin:40px auto;padding:0 16px">
-<h1>Ipsewa</h1>
-<p>Ipsewa is a tool that helps a creator publish their own short videos to their own TikTok account from one place.</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ipsewa</title>
+<style>body{font-family:system-ui,sans-serif;max-width:620px;margin:40px auto;padding:0 16px;color:#222}
+button{background:#fe2c55;color:#fff;border:0;padding:12px 20px;border-radius:8px;font-size:16px;cursor:pointer}
+button:disabled{opacity:.5}.box{border:1px solid #ddd;border-radius:12px;padding:20px;margin:20px 0}#log{color:#555;white-space:pre-wrap}
+img.logo{height:56px}</style></head><body>
+<img class="logo" src="icon-1024.png" alt="Ipsewa">
+<p>Ipsewa lets you send your own video to your own TikTok account.</p>
+<div class="box" id="login"><button id="loginBtn">Login with TikTok</button></div>
+<div class="box" id="app" hidden>
+  <p>Logged in as <b id="name"></b></p>
+  <p><input type="file" id="file" accept="video/mp4,video/quicktime"></p>
+  <p><button id="postBtn" disabled>Send to my TikTok</button></p>
+  <p>The video goes to your TikTok inbox as a draft. Open TikTok to finish and publish it.</p>
+</div>
+<div id="log"></div>
 <p><a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a></p>
-</body></html>
+<script>
+const CLIENT_KEY="sbaw118axjoamnmisl";
+const API="https://ipsewa-api.welovemanhwa3.workers.dev";
+const REDIRECT="https://aadityavale123-dev.github.io/ipsewavideo/";
+const $=id=>document.getElementById(id), log=t=>$("log").textContent=t;
+let token=sessionStorage.getItem("tt");
+
+$("loginBtn").onclick=()=>{
+  const state=crypto.randomUUID(); sessionStorage.setItem("state",state);
+  location=`https://www.tiktok.com/v2/auth/authorize/?client_key=${CLIENT_KEY}&scope=user.info.basic,video.upload&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT)}&state=${state}`;
+};
+async function api(path,opt={}){const r=await fetch(API+path,{method:"POST",...opt,headers:{...(token?{Authorization:"Bearer "+token}:{}),...opt.headers}});return r.json();}
+async function show(){
+  const u=await api("/api/user");
+  if(!u.data||!u.data.user){sessionStorage.removeItem("tt");token=null;return;}
+  $("name").textContent=u.data.user.display_name; $("login").hidden=true; $("app").hidden=false;
+}
+(async()=>{
+  const p=new URLSearchParams(location.search);
+  if(p.get("code")){
+    if(p.get("state")!==sessionStorage.getItem("state")) return log("Login failed (state mismatch).");
+    log("Logging in...");
+    const t=await api("/api/token",{headers:{"Content-Type":"application/json"},body:JSON.stringify({code:p.get("code"),redirect_uri:REDIRECT})});
+    history.replaceState({},"",REDIRECT);
+    if(!t.access_token) return log("Login failed: "+JSON.stringify(t));
+    token=t.access_token; sessionStorage.setItem("tt",token); log("");
+  }
+  if(token) show();
+})();
+$("file").onchange=e=>$("postBtn").disabled=!e.target.files[0];
+$("postBtn").onclick=async()=>{
+  const f=$("file").files[0]; $("postBtn").disabled=true; log("Uploading to TikTok...");
+  const r=await api("/api/upload",{headers:{"Content-Type":f.type||"video/mp4"},body:f});
+  if(!r.publish_id) return log("Upload failed: "+JSON.stringify(r));
+  for(let i=0;i<20;i++){
+    const s=await api("/api/status",{headers:{"Content-Type":"application/json"},body:JSON.stringify({publish_id:r.publish_id})});
+    const st=s.data&&s.data.status; log("TikTok status: "+st);
+    if(st==="SEND_TO_USER_INBOX"||st==="PUBLISH_COMPLETE"){log("Done! Video sent to your TikTok inbox. Open TikTok to publish it.");break;}
+    if(st==="FAILED"){log("Failed: "+JSON.stringify(s));break;}
+    await new Promise(r=>setTimeout(r,2000));
+  }
+  $("postBtn").disabled=false;
+};
+</script></body></html>

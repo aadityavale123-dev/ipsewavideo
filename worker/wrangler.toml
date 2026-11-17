@@ -1,0 +1,8 @@
+name = "ipsewa-api"
+main = "index.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+CLIENT_KEY = "sbaw118axjoamnmisl"
+ALLOWED_ORIGIN = "https://aadityavale123-dev.github.io"
+# secret: TIKTOK_CLIENT_SECRET (set with: npx wrangler secret put TIKTOK_CLIENT_SECRET)
