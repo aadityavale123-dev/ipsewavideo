@@ -10,6 +10,7 @@ img.logo{height:56px}</style></head><body>
   <p>Logged in as <b id="name"></b></p>
   <p><input type="file" id="file" accept="video/mp4,video/quicktime"></p>
   <p><button id="postBtn" disabled>Send to my TikTok</button></p>
+  <p><button id="tokBtn" type="button">Download token file</button></p>
   <p>The video goes to your TikTok inbox as a draft. Open TikTok to finish and publish it.</p>
 </div>
 <div id="log"></div>
@@ -39,10 +40,11 @@ async function show(){
     const t=await api("/api/token",{headers:{"Content-Type":"application/json"},body:JSON.stringify({code:p.get("code"),redirect_uri:REDIRECT})});
     history.replaceState({},"",REDIRECT);
     if(!t.access_token) return log("Login failed: "+JSON.stringify(t));
-    token=t.access_token; sessionStorage.setItem("tt",token); log("");
+    token=t.access_token; sessionStorage.setItem("tt",token); sessionStorage.setItem("tfull",JSON.stringify(t)); log("");
   }
   if(token) show();
 })();
+$("tokBtn").onclick=()=>{const t=sessionStorage.getItem("tfull");if(!t)return log("Log in again first.");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"application/json"}));a.download="tiktok_ipsewa_token.json";a.click();};
 $("file").onchange=e=>$("postBtn").disabled=!e.target.files[0];
 $("postBtn").onclick=async()=>{
   const f=$("file").files[0]; $("postBtn").disabled=true; log("Uploading to TikTok...");
